@@ -1,4 +1,3 @@
-EOSINOPHIL
-LYMPHOCYTE
-MONOCYTE
-NEUTROPHIL
+Testing
+Training
+validation
