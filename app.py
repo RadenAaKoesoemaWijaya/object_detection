@@ -13,6 +13,8 @@ from utils.classification import load_classification_model, classify_objects
 from utils.visualization import visualize_results, plot_statistics
 from utils.training import train_classification_model, prepare_yolo_dataset, train_yolo_model, plot_training_history
 import shutil
+import os
+os.environ["STREAMLIT_SERVER_MAX_UPLOAD_SIZE"] = "2048"  # atau nilai lebih besar sesuai kebutuhan
 
 # Set page config
 st.set_page_config(page_title="Deteksi Objek Preparat Mikroskopis (DETOKS)", layout="wide")
