@@ -131,18 +131,19 @@ def train_classification_model(dataset_path, epochs=20, batch_size=32, img_size=
     
     return model, history, class_names
 
-def prepare_yolo_dataset(dataset_path, output_path="yolo_dataset"):
+def prepare_yolo_dataset(dataset_path, label_format="xml"):
     """
     Prepare a dataset in YOLO format from XML annotations
     
     Args:
         dataset_path: Path to the dataset with Images and XML Files folders
-        output_path: Path to save the prepared dataset
+        label_format: Format of the labels in the dataset ("xml" or "txt")
         
     Returns:
         Path to the prepared dataset
     """
     # Create output directories
+    output_path = "yolo_dataset"
     os.makedirs(output_path, exist_ok=True)
     os.makedirs(os.path.join(output_path, "images", "train"), exist_ok=True)
     os.makedirs(os.path.join(output_path, "images", "val"), exist_ok=True)
@@ -172,44 +173,62 @@ def prepare_yolo_dataset(dataset_path, output_path="yolo_dataset"):
         if not os.path.exists(xml_path):
             continue
         
-        # Parse XML file
-        tree = ET.parse(xml_path)
-        root = tree.getroot()
+        if label_format == "xml":
+            # Parse XML file
+            tree = ET.parse(xml_path)
+            root = tree.getroot()
+            
+            # Get image dimensions
+            size = root.find("size")
+            width = int(size.find("width").text)
+            height = int(size.find("height").text)
+            
+            # Create YOLO format label file
+            label_content = []
+            
+            for obj in root.findall("object"):
+                class_name = obj.find("name").text
+                
+                # Add class to mapping if not exists
+                if class_name not in class_mapping:
+                    class_mapping[class_name] = len(class_mapping)
+                    class_count[class_name] = 0
+                
+                class_count[class_name] += 1
+                class_id = class_mapping[class_name]
+                
+                # Get bounding box coordinates
+                bbox = obj.find("bndbox")
+                xmin = float(bbox.find("xmin").text)
+                ymin = float(bbox.find("ymin").text)
+                xmax = float(bbox.find("xmax").text)
+                ymax = float(bbox.find("ymax").text)
+                
+                # Convert to YOLO format (x_center, y_center, width, height) normalized
+                x_center = ((xmin + xmax) / 2) / width
+                y_center = ((ymin + ymax) / 2) / height
+                bbox_width = (xmax - xmin) / width
+                bbox_height = (ymax - ymin) / height
+                
+                # Add to label content
+                label_content.append(f"{class_id} {x_center} {y_center} {bbox_width} {bbox_height}")
         
-        # Get image dimensions
-        size = root.find("size")
-        width = int(size.find("width").text)
-        height = int(size.find("height").text)
-        
-        # Create YOLO format label file
-        label_content = []
-        
-        for obj in root.findall("object"):
-            class_name = obj.find("name").text
-            
-            # Add class to mapping if not exists
-            if class_name not in class_mapping:
-                class_mapping[class_name] = len(class_mapping)
-                class_count[class_name] = 0
-            
-            class_count[class_name] += 1
-            class_id = class_mapping[class_name]
-            
-            # Get bounding box coordinates
-            bbox = obj.find("bndbox")
-            xmin = float(bbox.find("xmin").text)
-            ymin = float(bbox.find("ymin").text)
-            xmax = float(bbox.find("xmax").text)
-            ymax = float(bbox.find("ymax").text)
-            
-            # Convert to YOLO format (x_center, y_center, width, height) normalized
-            x_center = ((xmin + xmax) / 2) / width
-            y_center = ((ymin + ymax) / 2) / height
-            bbox_width = (xmax - xmin) / width
-            bbox_height = (ymax - ymin) / height
-            
-            # Add to label content
-            label_content.append(f"{class_id} {x_center} {y_center} {bbox_width} {bbox_height}")
+        elif label_format == "txt":
+            # Proses parsing TXT (YOLO format)
+            label_content = []
+            with open(xml_path, "r") as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    parts = line.split()
+                    class_id = int(parts[0])
+                    x_center = float(parts[1])
+                    y_center = float(parts[2])
+                    bbox_width = float(parts[3])
+                    bbox_height = float(parts[4])
+                    
+                    label_content.append(f"{class_id} {x_center} {y_center} {bbox_width} {bbox_height}")
         
         # Determine if this sample goes to train or validation set (80/20 split)
         is_train = i < int(len(image_files) * 0.8)
