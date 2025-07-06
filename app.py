@@ -314,10 +314,15 @@ elif page == "Pelatihan Model":
                 if os.path.exists(dataset_zip_path):
                     os.remove(dataset_zip_path)
                 if os.path.exists("temp_dataset"):
-                    shutil.rmtree("temp_dataset")
+                    for i in range(3):
+                        try:
+                            shutil.rmtree("temp_dataset")
+                            break
+                        except PermissionError:
+                            time.sleep(1)
         
         elif model_type == "Model Deteksi Objek (YOLO)":
-            st.write("Unggah dataset deteksi objek (folder dengan subfolder Images dan XML Files)")
+            st.write("Unggah dataset deteksi objek (folder dengan subfolder Images dan Labels)")
             
             # Upload dataset
             uploaded_dataset = st.file_uploader("Unggah dataset deteksi objek (ZIP)", type=["zip"])
@@ -357,14 +362,19 @@ elif page == "Pelatihan Model":
                         dataset_path = os.path.join(dataset_path, subdirs[0])
                     
                     # Check if dataset has proper structure
-                    if not os.path.exists(os.path.join(dataset_path, "Images")) or \
-                       not os.path.exists(os.path.join(dataset_path, "XML Files")):
-                        st.error("Dataset harus memiliki subfolder 'Images' dan 'XML Files'!")
+                    images_dir = os.path.join(dataset_path, "Images")
+                    xml_dir = os.path.join(dataset_path, "XML Files")
+                    txt_dir = os.path.join(dataset_path, "labels")
+                    has_xml = os.path.exists(xml_dir)
+                    has_txt = os.path.exists(txt_dir) or any(f.endswith('.txt') for f in os.listdir(dataset_path))
+
+                    if not os.path.exists(images_dir) or (not has_xml and not has_txt):
+                        st.error("Dataset harus memiliki subfolder 'Images' dan 'XML Files' (Pascal VOC) atau 'labels' (YOLO format)!")
                     else:
-                        # Prepare YOLO dataset
                         with st.spinner("Menyiapkan dataset YOLO..."):
                             try:
-                                yolo_dataset_path, class_mapping = prepare_yolo_dataset(dataset_path)
+                                label_format = "xml" if has_xml else "txt"
+                                yolo_dataset_path, class_mapping = prepare_yolo_dataset(dataset_path, label_format=label_format)
                                 
                                 # Show class mapping
                                 st.subheader("Kelas yang Terdeteksi")
@@ -437,7 +447,12 @@ elif page == "Pelatihan Model":
                 if os.path.exists(dataset_zip_path):
                     os.remove(dataset_zip_path)
                 if os.path.exists("temp_dataset"):
-                    shutil.rmtree("temp_dataset")
+                    for i in range(3):
+                        try:
+                            shutil.rmtree("temp_dataset")
+                            break
+                        except PermissionError:
+                            time.sleep(1)
                 if os.path.exists("yolo_dataset"):
                     shutil.rmtree("yolo_dataset")
     
